@@ -1,0 +1,78 @@
+version: '3.5'
+
+networks:
+  monitoring:
+    name: monitoring
+    labels:
+      network.description: "Monitoring Services Network"
+
+volumes:
+  elasticsearchdata: ~
+
+services:
+  zipkin:
+    image: openzipkin/zipkin:latest
+    ports:
+      - "9411:9411"
+    networks:
+      monitoring:
+        aliases:
+          - zipkin.docker
+    environment:
+      - STORAGE_TYPE=elasticsearch
+      - ES_HOSTS=elasticsearch
+      - ES_HTTP_LOGGING=BODY
+    depends_on:
+      - elasticsearch
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: fluentd.docker:24224
+        tag: "docker.service.zipkin"
+        fluentd-async-connect: "true"
+
+  elasticsearch:
+    build: ./etc/elasticsearch
+    networks:
+      - monitoring
+    volumes:
+      - elasticsearchdata:/elasticsearch/data:delegated
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: fluentd.docker:24224
+        tag: "docker.service.elasticsearch"
+        fluentd-async-connect: "true"
+
+  kibana:
+    build: ./etc/kibana
+    ports:
+      - "5601:5601"
+    networks:
+      - monitoring
+    depends_on:
+      - elasticsearch
+    volumes:
+      - ./etc/kibana/config:/kibana/config
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: fluentd.docker:24224
+        tag: "docker.service.kibana"
+        fluentd-async-connect: "true"
+
+  fluentd:
+    build: ./etc/fluentd
+    networks:
+      monitoring:
+        aliases:
+          - fluentd.docker
+    ports:
+      - "24224:24224"
+    volumes:
+      - ./etc/fluentd/conf:/fluentd/etc
+    depends_on:
+      - elasticsearch
