@@ -1,0 +1,26 @@
+version: '3.5'
+
+networks:
+  monitoring:
+    external: true
+  envoy:
+    name: envoy
+    labels:
+      network.description: "Envoy Network"
+services:
+  envoyfront:
+    build: ./etc/envoy-front
+    volumes:
+      - ./etc/envoy-front/etc:/etc/envoy
+    networks:
+      - envoy
+      - monitoring
+    ports:
+      - "9901:9901"
+      - "80:80"
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: fluentd.docker:24224
+        tag: "docker.service.envoyfront"
+        fluentd-async-connect: "true"
